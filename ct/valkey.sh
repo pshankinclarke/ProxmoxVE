@@ -42,4 +42,4 @@ description
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
 echo -e "${INFO}${YW} Connection details saved inside the container:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}/root/valkey.creds${CL}"
+echo -e "${TAB}${BGN}/root/valkey.creds${CL}"
