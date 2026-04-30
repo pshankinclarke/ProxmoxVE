@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/build.func)
+source <(curl -fsSL https://raw.githubusercontent.com/pshankinclarke/ProxmoxVE/refs/heads/fix-valkey-final-output/misc/build.func)
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: pshankinclarke (lazarillo)
 # License: MIT | https://github.com/community-scripts/ProxmoxVE/raw/main/LICENSE
@@ -41,5 +41,5 @@ description
 
 msg_ok "Completed successfully!\n"
 echo -e "${CREATING}${GN}${APP} setup has been successfully initialized!${CL}"
-echo -e "${INFO}${YW} Access it using the following URL:${CL}"
-echo -e "${TAB}${GATEWAY}${BGN}http://${IP}:6379${CL}"
+echo -e "${INFO}${YW} Connection details saved inside the container:${CL}"
+echo -e "${TAB}${GATEWAY}${BGN}/root/valkey.creds${CL}"
