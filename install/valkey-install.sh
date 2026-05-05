@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+
 
 # Copyright (c) 2021-2026 community-scripts ORG
 # Author: pshankinclarke (lazarillo)
@@ -19,6 +19,7 @@ VALKEY_TLS_ENABLED="no"
 VALKEY_TCP_PORT="6379"
 VALKEY_TLS_PORT=""
 VALKEY_TLS_CERT_TYPE="none"
+VALKEY_HOST="$(hostname -I | awk '{print $1}')"
 
 emit_valkey_command() {
   local label="$1"
@@ -29,10 +30,10 @@ emit_valkey_command() {
 
   if [[ -n "$tls_args" ]]; then
     printf 'valkey-cli -h %s -p %s %s -a "$(cat /root/valkey.creds)" ping\n\n' \
-      "$IP" "$port" "$tls_args"
+      "$VALKEY_HOST" "$port" "$tls_args"
   else
     printf 'valkey-cli -h %s -p %s -a "$(cat /root/valkey.creds)" ping\n\n' \
-      "$IP" "$port"
+      "$VALKEY_HOST" "$port"
   fi
 }
 
@@ -43,14 +44,14 @@ write_valkey_connection_info() {
     printf 'Password file: /root/valkey.creds\n\n'
 
     if [[ "$VALKEY_TCP_ENABLED" == "yes" ]]; then
-      printf 'Plain TCP: %s:%s\n' "$IP" "$VALKEY_TCP_PORT"
+      printf 'Plain TCP: %s:%s\n' "$VALKEY_HOST" "$VALKEY_TCP_PORT"
       emit_valkey_command "Plain TCP test" "$VALKEY_TCP_PORT"
     else
       printf 'Plain TCP: disabled\n'
     fi
 
     if [[ "$VALKEY_TLS_ENABLED" == "yes" ]]; then
-      printf 'TLS %s:%s\n' "$IP" "$VALKEY_TLS_PORT"
+      printf 'TLS: %s:%s\n' "$VALKEY_HOST" "$VALKEY_TLS_PORT"
       printf 'TLS Certificate Type: %s\n\n' "$VALKEY_TLS_CERT_TYPE"
 
       emit_valkey_command \
