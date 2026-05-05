@@ -20,6 +20,94 @@ VALKEY_TCP_PORT="6379"
 VALKEY_TLS_PORT=""
 VALKEY_TLS_CERT_TYPE="none"
 
+emit_valkey_command() {
+  local label="$1"
+  local port="$2"
+  local tls_args="${3:-}"
+
+  printf "%s:\n" "$label"
+
+  if [[ -n "$tls_args" ]]; then
+    printf 'valkey-cli -h %s -p %s %s -a "$(cat /root/valkey.creds)" ping\n\n' \
+      "$IP" "$port" "$tls_args"
+  else
+    printf 'valkey-cli -h %s -p %s -a "$(cat /root/valkey.creds)" ping\n\n' \
+      "$IP" "$port"
+  fi
+}
+
+write_valkey_connection_info() {
+  {
+    printf 'Valkey Connection Details\n\n'
+    printf 'Connection Mode: %s\n' "$CONNECTION_MODE"
+    printf 'Password file: /root/valkey.creds\n\n'
+
+    if [[ "$VALKEY_TCP_ENABLED" == "yes" ]]; then
+      printf 'Plain TCP: %s:%s\n' "$IP" "$VALKEY_TCP_PORT"
+      emit_valkey_command "Plain TCP test" "$VALKEY_TCP_PORT"
+    else
+      printf 'Plain TCP: disabled\n'
+    fi
+
+    if [[ "$VALKEY_TLS_ENABLED" == "yes" ]]; then
+      printf 'TLS %s:%s\n' "$IP" "$VALKEY_TLS_PORT"
+      printf 'TLS Certificate Type: %s\n\n' "$VALKEY_TLS_CERT_TYPE"
+
+      emit_valkey_command \
+        "Quick TLS test" \
+        "$VALKEY_TLS_PORT" \
+        "--tls --insecure"
+
+      emit_valkey_command \
+        "Verified TLS from this container" \
+        "$VALKEY_TLS_PORT" \
+        "--tls --cacert /etc/ssl/valkey/valkey.crt"
+
+    else
+      printf 'TLS: disabled\n\n'
+    fi
+  } > ~/valkey.connection-info
+  chmod 600 ~/valkey.connection-info
+}
+
+validate_valkey() {
+  msg_info "Validating Valkey"
+
+  if ! systemctl is-active --quiet valkey-server; then
+    msg_error "Valkey service failed to start"
+    journalctl -u valkey-server -n 20 --no-pager || true
+    exit 1
+  fi
+
+  if [[ "$VALKEY_TCP_ENABLED" == "yes" ]]; then
+    if ! valkey-cli -p "$VALKEY_TCP_PORT" -a "$PASS" ping 2>/dev/null | grep -q PONG; then
+      msg_error "Valkey did not respond to TCP port ${VALKEY_TCP_PORT}"
+      journalctl -u valkey-server -n 20 --no-pager || true
+      exit 1
+    fi
+    msg_ok "Validated TCP connection on port ${VALKEY_TCP_PORT}"
+  fi
+
+  if [[ "$VALKEY_TLS_ENABLED" == "yes" ]]; then
+    if ! valkey-cli -p "$VALKEY_TLS_PORT" --tls --insecure -a "$PASS" ping 2>/dev/null | grep -q PONG; then
+      msg_error "Valkey did not respond over TLS on port ${VALKEY_TLS_PORT}"
+      journalctl -u valkey-server -n 20 --no-pager || true
+      exit 1
+    fi
+    msg_ok "Validated TLS connection on port ${VALKEY_TLS_PORT}"
+  fi
+
+  if [[ "$CONNECTION_MODE" == "tls-only" ]]; then
+    if valkey-cli -p "$VALKEY_TLS_PORT" -a "$PASS" ping >/dev/null 2>&1; then
+      msg_error "Plain TCP unexpectedly responded on port ${VALKEY_TLS_PORT}"
+      exit 1
+    fi
+    msg_ok "Confirmed plain TCP is disabled on port ${VALKEY_TLS_PORT}"
+  fi
+  msg_ok "Validated Valkey"
+}
+
+
 msg_info "Installing Valkey"
 $STD apt update
 $STD apt install -y valkey openssl
@@ -113,8 +201,13 @@ case "$connection_choice" in
     ;;
 esac
 
+write_valkey_connection_info
+msg_ok "Saved connection details"
+
 systemctl enable -q --now valkey-server
 systemctl restart valkey-server
+
+validate_valkey
 
 motd_ssh
 customize
